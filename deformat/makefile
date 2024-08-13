@@ -1,4 +1,9 @@
-CC=gcc
+# Determine the compiler based on architecture
+ifeq ($(shell uname -m),aarch64)
+    CC=gcc
+else
+    CC=aarch64-linux-gnu-gcc
+endif
 
 all: deformat.o
 	$(CC) -o deformat deformat.o
@@ -11,4 +16,4 @@ sep: deformat
 
 clean:
 	rm deformat deformat.o
-	rm trc_*.dat trc_*.out trc_*.hum
+	# rm trc_*.dat trc_*.out trc_*.hum

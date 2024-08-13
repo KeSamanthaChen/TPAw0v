@@ -51,7 +51,7 @@ void proc_frame(FILE** fps, uint8_t* frame_buf, int* cur_id) {
             // Data byte
             char dat = (frame_buf[i*2] & 0xfe) | ((aux & (0x1 << i)) >> i);
             FILE* tar_fp = id2file(fps, *cur_id);
-            fwrite(&dat, sizeof(uint8_t), 1, tar_fp); 
+            fwrite(&dat, sizeof(uint8_t), 1, tar_fp);
             if(i != 7) {
                 fwrite(&frame_buf[i*2 + 1], sizeof(uint8_t), 1, tar_fp); 
             }
@@ -79,7 +79,7 @@ void dat2out(char* ifname, char* ofname) {
 
 
 int main(int argc, char *argv[]) {
-    const char* fname = "../output/trace.dat";
+    const char* fname = "trace.dat";
     uint8_t n_mp;
     uint8_t frame_buf[16];
     FILE* fp = fopen(fname, "rb");

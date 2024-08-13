@@ -42,7 +42,9 @@ extern TMC_interface *tmc1;
 void poller()
 {
     pin_to_core(1);
-    uint32_t soft_fifo_storage[256];
+    uint32_t storage_size = 256;
+    uint32_t soft_fifo_storage[storage_size];
+
     uint32_t storage_ptr = 0;
     uint32_t flush_ct = 0;
 
@@ -65,17 +67,31 @@ void poller()
         else
         {
             soft_fifo_storage[storage_ptr++] = tmp;
-            if (storage_ptr == 256)
+            if (storage_ptr == storage_size)
             {
                 while (etms[0]->prog_ctrl == 1);
             }
         }
     }
     printf("Trace session ended. Poller print trace data:\n");
-    for (uint32_t i = 0; i < storage_ptr; i++)
-    {
-        printf("%08x\n", soft_fifo_storage[i]);
+
+    FILE *file = fopen("trace.dat", "w");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
     }
+    size_t written = fwrite(soft_fifo_storage, sizeof(uint32_t), storage_ptr, file);
+    if (written != storage_ptr) {
+        perror("Error writing to file");
+    }
+    fclose(file);
+    printf("Trace data has been written to trace.dat\n");
+
+    // for (uint32_t i = 0; i < storage_ptr; i++)
+    // {
+    //     printf("%08x\n", soft_fifo_storage[i]); // store to file
+    // }
+
     printf("\nmeta data\n");
     printf("null read count: %d\n\n", flush_ct);
 }
@@ -85,7 +101,7 @@ int main(int argc, char *argv[])
     printf("Vanilla ZCU102 self-host trace demo.\n");
     printf("Build: on %s at %s\n\n", __DATE__, __TIME__);
 
-    pid_t target_pid; 
+    pid_t target_pid;
 
     // Disabling all cpuidle. Access the ETM of an idled core will cause a hang.
     linux_disable_cpuidle();

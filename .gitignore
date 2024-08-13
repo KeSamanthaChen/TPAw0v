@@ -1,2 +1,6 @@
-/etm/send.sh
+/csc/send.sh
 *.o
+/ke/
+start_mp
+deformat
+ctrace
