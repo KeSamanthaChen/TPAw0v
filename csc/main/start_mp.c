@@ -48,13 +48,8 @@ void poller()
     uint32_t storage_ptr = 0;
     uint32_t flush_ct = 0;
 
-    for (int i = 0; i < 256; i++)
-    {
-        soft_fifo_storage[i] = 0xbeefcafe;
-    }
-
     while (etms[0]->prog_ctrl == 0);
-    while (etms[0]->prog_ctrl == 1)
+    while (etms[0]->prog_ctrl == 1 || !etm_is_idle(etms[0]) || !(tmc1->ram_write_pt == tmc1->ram_read_pt))
     {
         // When ETF is in Software FIFO mode, poll RRD register return new data or 0xffffffff if no new data
         uint32_t tmp = tmc1->ram_read_data;
@@ -75,32 +70,27 @@ void poller()
     }
     printf("Trace session ended. Poller print trace data:\n");
 
-    FILE *file = fopen("trace.dat", "w");
-    if (file == NULL) {
-        perror("Error opening file");
-        return;
-    }
-    size_t written = fwrite(soft_fifo_storage, sizeof(uint32_t), storage_ptr, file);
-    if (written != storage_ptr) {
-        perror("Error writing to file");
-    }
-    fclose(file);
-    printf("Trace data has been written to trace.dat\n");
+    // open a new file name trace.out and write the trace data to it.
+    FILE *fp = fopen("output/trace.out", "w");
 
-    FILE *fp1 = fopen("trace.out", "w");
-    if (fp1 == NULL) {
-        perror("Error opening file");
-        return; // or handle the error as appropriate
-    }
+    // open a new file to save binary version
+    FILE *fp_bin = fopen("output/trace.dat", "wb");
 
     for (uint32_t i = 0; i < storage_ptr; i++)
     {
-        fprintf(fp1, "0x%08X\n", soft_fifo_storage[i]);
+        fprintf(fp, "0x%08x\n", soft_fifo_storage[i]);
+        fwrite(&soft_fifo_storage[i], sizeof(uint32_t), 1, fp_bin);
     }
 
-    fclose(fp1);
-   
+    printf("Trace snippet 0 - 30 (line) \n");
+    for (uint32_t i = 0; i < storage_ptr; i++)
+    {
+        printf("0x%08x\n", soft_fifo_storage[i]);
+        if(i == 30) break;
+    }
 
+    fclose(fp);
+    fclose(fp_bin);
 
     // for (uint32_t i = 0; i < storage_ptr; i++)
     // {
@@ -109,6 +99,7 @@ void poller()
 
     printf("\nmeta data\n");
     printf("null read count: %d\n\n", flush_ct);
+    printf("Trace data is saved to output/trace.out/dat\n");
 }
 
 int main(int argc, char *argv[])
@@ -137,11 +128,11 @@ int main(int argc, char *argv[])
         if (target_pid == 0)
         {
             pin_to_core(i);
-            uint64_t child_pid = getpid();
+            uint64_t child_pid = (uint64_t) getpid();
 
             // further configure ETM. So that it will only trace the process with pid == child_pid/target_pid
             // with the program counter in the range of 0x400000 to 0x500000
-            etm_set_contextid_cmp(etms[0], (uint64_t)child_pid);
+            etm_set_contextid_cmp(etms[0], child_pid);
             etm_register_range(etms[0], 0x400000, 0x500000, 1);
             // etm_register_range(etms[0], 0x000000, 0xffffffffffffffff, 1);
 
@@ -162,8 +153,7 @@ int main(int argc, char *argv[])
             etm_enable(etms[0]);
 
             // execute target application
-            // execl("/bin/ls", "ls", NULL);
-            execl("./hello", "hello", NULL);
+            execl("./hello_ETM", "hello_ETM", NULL);
             perror("execl failed. Target application failed to start.");
             exit(1);
         }
