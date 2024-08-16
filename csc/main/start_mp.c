@@ -89,8 +89,8 @@ void poller()
         if(i == 30) break;
     }
 
-    fclose(fp);
-    fclose(fp_bin);
+    fclose(fp); 
+    fclose(fp_bin); 
 
     // for (uint32_t i = 0; i < storage_ptr; i++)
     // {
