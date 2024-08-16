@@ -42,7 +42,7 @@ extern TMC_interface *tmc1;
 void poller()
 {
     pin_to_core(1);
-    uint32_t storage_size = 256;
+    uint32_t storage_size = 1024 * 1024 ; // 32MB
     uint32_t soft_fifo_storage[storage_size];
 
     uint32_t storage_ptr = 0;
@@ -61,7 +61,7 @@ void poller()
         if (tmp == 0xffffffff)
         {
             // If there is no new data to read, trigger a flush to force output buffered data. But it will trash the bus with formatter padding (i.e. bunch of zeros)
-            // tmc1->formatter_flush_ctrl = 0x43; 
+            tmc1->formatter_flush_ctrl = 0x43;
             flush_ct++;
         }
         else
@@ -86,6 +86,21 @@ void poller()
     }
     fclose(file);
     printf("Trace data has been written to trace.dat\n");
+
+    FILE *fp1 = fopen("trace.out", "w");
+    if (fp1 == NULL) {
+        perror("Error opening file");
+        return; // or handle the error as appropriate
+    }
+
+    for (uint32_t i = 0; i < storage_ptr; i++)
+    {
+        fprintf(fp1, "0x%08X\n", soft_fifo_storage[i]);
+    }
+
+    fclose(fp1);
+   
+
 
     // for (uint32_t i = 0; i < storage_ptr; i++)
     // {
@@ -128,6 +143,7 @@ int main(int argc, char *argv[])
             // with the program counter in the range of 0x400000 to 0x500000
             etm_set_contextid_cmp(etms[0], (uint64_t)child_pid);
             etm_register_range(etms[0], 0x400000, 0x500000, 1);
+            // etm_register_range(etms[0], 0x000000, 0xffffffffffffffff, 1);
 
             // add a child process to poll RRD to read trace data
             pid_t pid2 = fork();
@@ -146,7 +162,8 @@ int main(int argc, char *argv[])
             etm_enable(etms[0]);
 
             // execute target application
-            execl("/bin/ls", "ls", NULL);
+            // execl("/bin/ls", "ls", NULL);
+            execl("./hello", "hello", NULL);
             perror("execl failed. Target application failed to start.");
             exit(1);
         }

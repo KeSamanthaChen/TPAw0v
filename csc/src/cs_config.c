@@ -185,7 +185,7 @@ void config_etm_n(ETM_interface* etm_n, int stall, int id)
 	etm_disable(etm_n);
 	etm_reset(etm_n); // reset would set id to 1
 	etm_n->trace_id = id; // so assign a none conflict id
-	etm_set_cid(etm_n); // set_cid cause the ETM to track context ID
+	etm_set_cid(etm_n); // set_cid cause the ETM to track context ID 
 	etm_set_stall(etm_n, stall);
 	etm_set_sync(etm_n, 0);
 
