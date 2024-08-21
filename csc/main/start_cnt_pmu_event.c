@@ -1,14 +1,23 @@
 /*
-    Brief: This is a simple demo to show how to use ETM to trace a target application.
+    Brief: adapted from start_mp.c, this demo also illustrates 
+        how to emit Event Packet in trace stream when a user-chosen PMU event happens for a user-defined number of times.
 
     This demo should run on ZCU102/Kria board as long as the APU has linux running.
-    Contrary to the original paper, this demo does not need RPU. 
-
-    The purpose of this demo is to provide a template for researchers who want to use the CoreSight debug infrastructure.
 
     Author: Weifan Chen
-    Date: 2024-08-10
+    Date: 2024-08-20
 */
+
+/*
+    Some observations:
+        The address range can toggle the trace-on and trace-off.
+        However, the emit of Event Packet is independent of the trace-on/trace-off state.
+        When the event occurs, the ETM will send synchronization plus event packet. 
+
+        This demo the poller does NOT attempt to flush the TMC at all.
+        It's unclear whether the real-time property is preserved.
+*/
+
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -25,7 +34,7 @@ int main(int argc, char *argv[])
     printf("Vanilla ZCU102 self-host trace demo.\n");
     printf("Build: on %s at %s\n\n", __DATE__, __TIME__);
 
-    pid_t target_pid;
+    pid_t target_pid; 
 
     // Disabling all cpuidle. Access the ETM of an idled core will cause a hang.
     linux_disable_cpuidle();
@@ -36,10 +45,13 @@ int main(int argc, char *argv[])
     // configure TMC1 to be in Software FIFO mode
     cs_config_tmc1_softfifo();
 
+    // enable PMU architectural event export
+    config_pmu_enable_export();
+
     // initialize ETM
     config_etm_n(etms[0], 0, 1);
 
-    // fork a child to execute the target application
+    // fork a child to execute the target application. 
     for (int i = 0; i < 1; i++)
     {
         target_pid = fork();
@@ -49,11 +61,17 @@ int main(int argc, char *argv[])
             uint64_t child_pid = (uint64_t) getpid();
 
             // further configure ETM. So that it will only trace the process with pid == child_pid/target_pid
-            // with the program counter in the range of 0x400000 to 0x500000
             etm_set_contextid_cmp(etms[0], child_pid);
-            etm_register_range(etms[0], 0x400000, 0x500000, 1);
-            // etm_register_range(etms[0], 0x000000, 0xffffffffffffffff, 1);
+            etm_register_range(etms[0], 0x401144, 0x401144, 1); // this address is supposed to be the first instruction in <main>
 
+            // choose one example to run
+            //      example 1: use one counter (16-bit)
+            // etm_example_single_counter_fire_event(etms[0], L2D_CACHE_REFILL_T, 65535); // 65535 is the max value for a 16-bit counter
+
+            //      example 2: use two counters to form a 32 bit counter
+            etm_example_large_counter_fire_event(etms[0], L2D_CACHE_REFILL_T, 100000); 
+
+            // add a child process to poll RRD to read trace data
             spawn_child(poller);
 
             // Enable ETM, start trace session
@@ -70,6 +88,7 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
+
     // wait for target application to finish
     int status;
     waitpid(target_pid, &status, 0);

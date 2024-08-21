@@ -4,3 +4,8 @@
 start_mp
 deformat
 ctrace
+*.out
+*.hum
+*.dat
+*.sh
+.DS_Store
