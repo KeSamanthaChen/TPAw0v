@@ -50,8 +50,9 @@ int main(int argc, char *argv[])
 
             // further configure ETM. So that it will only trace the process with pid == child_pid/target_pid
             // with the program counter in the range of 0x400000 to 0x500000
-            etm_set_contextid_cmp(etms[0], child_pid);
-            etm_register_range(etms[0], 0x400000, 0x500000, 1);
+            etm_set_contextid_cmp(etms[0], child_pid); // trace the child process, means everything in here?
+            // etm_register_range(etms[0], 0x400000, 0x500000, 1);
+            etm_register_range(etms[0], 0x401144, 0x401274, 1); // only trace main
             // etm_register_range(etms[0], 0x000000, 0xffffffffffffffff, 1);
 
             spawn_child(poller);
