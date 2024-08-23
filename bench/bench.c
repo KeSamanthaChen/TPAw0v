@@ -753,7 +753,7 @@ static void bench_linear(const char *name, void (*bench)(void))
 	runs = 0;
 	loops = 0;
 
-	perf_read(perf_prev_values);
+	perf_read(perf_prev_values); //
 
 	while (1) {
 		bench();
@@ -761,17 +761,17 @@ static void bench_linear(const char *name, void (*bench)(void))
 
 		clock_gettime(CLOCK_MONOTONIC, &ts_now);
 		if (!timespec_is_le(&ts_now, &ts_end)) {
-			perf_read(perf_curr_values);
-			perf_delta(perf_curr_values, perf_prev_values, perf_delta_values);
+			perf_read(perf_curr_values); //
+			perf_delta(perf_curr_values, perf_prev_values, perf_delta_values); //
 
 			bytes_accessed = runs * map_size;
 			delta_t_ns = timespec_ns(timespec_sub(&ts_now, &ts_start, &ts_tmp));
 			bw = 1000.0 * bytes_accessed / delta_t_ns;
 
-			printf("%.1f MiB/s, %.1f MB/s", to_mib(bw), bw);
+			printf("%.1f MiB/s, %.1f MB/s", to_mib(bw), bw); //
 #if NUM_PERF > 0
 			if (perf_ok) {
-#if NUM_PERF == 1
+#if NUM_PERF == 1 // if perf
 				printf(", perf: %.1f MB/s", 1000.0 * perf_delta_values[0] * CACHELINE_SIZE / delta_t_ns);
 #else
 				char delim = ' ';

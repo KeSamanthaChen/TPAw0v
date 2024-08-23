@@ -3,9 +3,15 @@
 /ke/
 start_mp
 deformat
+start_etm_pmu
+start_etr
+start_sram
+start_cnt_pmu_event
+hello_ETM
 ctrace
 *.out
 *.hum
 *.dat
 *.sh
 .DS_Store
+.vscode
