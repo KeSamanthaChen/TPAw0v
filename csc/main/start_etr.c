@@ -20,11 +20,15 @@
 #include "cs_etm.h"
 #include "cs_config.h"
 #include "buffer.h"
+#include "pmu_counter.h"
 
 extern ETM_interface *etms[4];
 
 int main(int argc, char *argv[])
 {
+    printf("Perf open.\n");
+    perf_open();
+
     printf("Vanilla ZCU102 self-host trace demo.\n");
     printf("Build: on %s at %s\n\n", __DATE__, __TIME__);
 
@@ -65,6 +69,8 @@ int main(int argc, char *argv[])
             etm_set_contextid_cmp(etms[0], child_pid);
             etm_register_range(etms[0], 0x400000, 0x500000, 1);
 
+            perf_read(perf_prev_values);
+
             // Enable ETM, start trace session
             etm_enable(etms[0]);
 
@@ -86,6 +92,12 @@ int main(int argc, char *argv[])
 
     // Disable ETM, our trace session is done
     etm_disable(etms[0]);
+
+    perf_read(perf_curr_values);
+    perf_delta(perf_curr_values, perf_prev_values, perf_delta_values);
+
+    printf("L2D refill: %llu\n", perf_delta_values[0]);
+    printf("L2D write-back: %llu\n", perf_delta_values[1]);
 
     munmap(etms[0], sizeof(ETM_interface));
 
