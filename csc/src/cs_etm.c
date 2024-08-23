@@ -18,17 +18,30 @@
     When requesting pair, the index is taken from below
     When requesting single, the index is taken from above to resolve the conflict
 */
-int avail_addr_cmp_high = 7 ;
-int avail_addr_cmp_low = 0 ;
-int avail_rs_high = 15 ; // 13.8.37 a53 trm, 7.3.62 ETMv4
-int avail_rs_low = 2 ;
-int avail_ext_sel_low = 0;
-int avail_ext_sel_high = 3;
+int avail_addr_cmp_high[4] = {7,7,7,7};
+int avail_addr_cmp_low[4] = {0,0,0,0};
+int avail_rs_high[4] = {15,15,15,15};
+int avail_rs_low[4] = {2,2,2,2};
+int avail_ext_sel_low[4] = {0,0,0,0};
+int avail_ext_sel_high[4] = {3,3,3,3};
 
-static int _request_addr_cmp()
+extern ETM_interface* etms[4];
+
+static int get_etm_index(ETM_interface* etm)
 {
-    if (avail_addr_cmp_high >= avail_addr_cmp_low)
-        return avail_addr_cmp_high -- ;
+    int i;
+    for(i=0; i<4; i++) {
+        if (etms[i] == etm)
+            return i;
+    }
+    return -1;
+}
+
+static int _request_addr_cmp(ETM_interface* etm)
+{
+    int id = get_etm_index(etm);
+    if (avail_addr_cmp_high[id] >= avail_addr_cmp_low[id])
+        return avail_addr_cmp_high[id] -- ;
     else {
         fprintf(stderr, "Error: More than 8 Address Comparator requested!\n");
         exit(1);
@@ -39,11 +52,12 @@ static int _request_addr_cmp()
     Check if there is enough address comparator available
     if so, return the index of the first address comparator
 */
-static int _request_addr_cmp_pair()
+static int _request_addr_cmp_pair(ETM_interface* etm)
 {
-    if ((avail_addr_cmp_low + 1) <= avail_addr_cmp_high) {
-        int base_pair_num = avail_addr_cmp_low ;
-        avail_addr_cmp_low += 2 ;
+    int id = get_etm_index(etm);
+    if ((avail_addr_cmp_low[id] + 1) <= avail_addr_cmp_high[id]) {
+        int base_pair_num = avail_addr_cmp_low[id] ;
+        avail_addr_cmp_low[id] += 2 ;
         return base_pair_num ;
     } else {
         fprintf(stderr, "Error: More than 8 Addreses Comparator requested while requesting a address pair!\n");
@@ -51,21 +65,23 @@ static int _request_addr_cmp_pair()
     }
 }
 
-static int _request_rs()
+static int _request_rs(ETM_interface* etm)
 {
-    if (avail_rs_high >= avail_rs_low)
-        return avail_rs_high -- ;
+    int id = get_etm_index(etm);
+    if (avail_rs_high[id] >= avail_rs_low[id])
+        return avail_rs_high[id] -- ;
     else {
         fprintf(stderr, "Error: More than 14 Resource Selector requeste while requesting a single rs.\n");
         exit(1);
     }
 }
 
-static int _request_rs_pair() 
+static int _request_rs_pair(ETM_interface* etm) 
 {
-    if ((avail_rs_low + 1) <= avail_rs_high) {
-        int base_pair_num = avail_rs_low ;
-        avail_rs_low += 2 ;
+    int id = get_etm_index(etm);
+    if ((avail_rs_low[id] + 1) <= avail_rs_high[id]) {
+        int base_pair_num = avail_rs_low[id] ;
+        avail_rs_low[id] += 2 ;
         return base_pair_num ;
     } else {
         fprintf(stderr, "Error: More than 14 Resource Selector requested while requesting a rs pair!\n");
@@ -74,10 +90,11 @@ static int _request_rs_pair()
 }
 
 /* return next available External Input Selector index */
-static int _request_ext_sel()
+static int _request_ext_sel(ETM_interface* etm)
 {
-    if (avail_ext_sel_high >= avail_ext_sel_low)
-        return avail_ext_sel_high -- ;
+    int id = get_etm_index(etm);
+    if (avail_ext_sel_high[id] >= avail_ext_sel_low[id])
+        return avail_ext_sel_high[id] -- ;
     else {
         fprintf(stderr, "Error: More than 4 External Input Seletor requeste while requesting a single Ext Sel.\n");
         exit(1);
@@ -237,11 +254,6 @@ void etm_set_stall(ETM_interface *etm, int level)
     }
 }
 
-// void etm_set_return_stack(ETM_interface *etm)
-// {
-//     return ;
-// }
-
 void etm_set_branch_broadcast(ETM_interface *etm, int inv, uint8_t mask)
 {
     SET(etm->trace_config, 3);
@@ -264,7 +276,7 @@ static void etm_set_addr_cmp(ETM_interface *etm, int num, uint64_t addr, int cmp
 
 void etm_register_range(ETM_interface *etm, uint64_t start_addr, uint64_t end_addr, int cmp_contextid)
 {
-    int addr_cmp_index_base = _request_addr_cmp_pair();
+    int addr_cmp_index_base = _request_addr_cmp_pair(etm);
     etm_set_addr_cmp(etm, addr_cmp_index_base, start_addr, cmp_contextid);
     etm_set_addr_cmp(etm, addr_cmp_index_base + 1, end_addr, cmp_contextid);
     SET(etm->vi_ie_ctrl, addr_cmp_index_base / 2);
@@ -272,8 +284,8 @@ void etm_register_range(ETM_interface *etm, uint64_t start_addr, uint64_t end_ad
 
 void etm_register_start_stop_addr(ETM_interface *etm, uint64_t start_addr, uint64_t end_addr)
 {
-    int cmp_0 = _request_addr_cmp();
-    int cmp_1 = _request_addr_cmp();
+    int cmp_0 = _request_addr_cmp(etm);
+    int cmp_1 = _request_addr_cmp(etm);
     etm_set_addr_cmp(etm, cmp_0, start_addr, 1);
     etm_set_addr_cmp(etm, cmp_1, end_addr, 1);
     etm->vi_main_ctrl = 0x1;
@@ -312,49 +324,15 @@ static void etm_set_rs(ETM_interface *etm, int rs_num, enum rs_group group, int 
         SET(etm->resource_sel_ctrl[rs_num], 21);
 }
 
-
-static void etm_set_event_sel_0(ETM_interface *etm, int rs_num, int pair)
+static void etm_set_event_sel_n(ETM_interface *etm, int rs_num, int pair, int n)
 {
     if (rs_num <2)
         printf("WARNING: Resource Selector 0,1 is used for event trace. This is not common, unless intended.\n");
-    etm->event_ctrl_0 |= rs_num ;
+    etm->event_ctrl_0 |= rs_num << (8*n);
     if (pair)
-        SET(etm->event_ctrl_0, 7);
+        SET(etm->event_ctrl_0, 7 + 8*n);
     else
-        CLEAR(etm->event_ctrl_0, 7);
-}
-
-static void etm_set_event_sel_1(ETM_interface *etm, int rs_num, int pair)
-{
-    if (rs_num <2)
-        printf("WARNING: Resource Selector 0,1 is used for event trace. This is not common, unless intended.\n");
-    etm->event_ctrl_0 |= rs_num << 8 ;
-    if (pair)
-        SET(etm->event_ctrl_0, 15);
-    else
-        CLEAR(etm->event_ctrl_0, 15);
-}
-
-static void etm_set_event_sel_2(ETM_interface *etm, int rs_num, int pair)
-{
-    if (rs_num <2)
-        printf("WARNING: Resource Selector 0,1 is used for event trace. This is not common, unless intended.\n");
-    etm->event_ctrl_0 |= rs_num << 16 ;
-    if (pair)
-        SET(etm->event_ctrl_0, 23);
-    else
-        CLEAR(etm->event_ctrl_0, 23);
-}
-
-static void etm_set_event_sel_3(ETM_interface *etm, int rs_num, int pair)
-{
-    if (rs_num <2)
-        printf("WARNING: Resource Selector 0,1 is used for event trace. This is not common, unless intended.\n");
-    etm->event_ctrl_0 |= rs_num << 24;
-    if (pair)
-        SET(etm->event_ctrl_0, 31);
-    else
-        CLEAR(etm->event_ctrl_0, 31);
+        CLEAR(etm->event_ctrl_0, 7 + 8*n);
 }
 
 static void etm_set_event_sel(ETM_interface *etm, int sel_num, int rs_num, int pair)
@@ -363,24 +341,8 @@ static void etm_set_event_sel(ETM_interface *etm, int sel_num, int rs_num, int p
     if (pair) {
         true_num = rs_num / 2;
     }
-    switch(sel_num) {
-        case 0:
-            etm_set_event_sel_0(etm, true_num, pair);
-            break;
-        case 1:
-            etm_set_event_sel_1(etm, true_num, pair);
-            break;
-        case 2:
-            etm_set_event_sel_2(etm, true_num, pair);
-            break;
-        case 3:
-            etm_set_event_sel_3(etm, true_num, pair);
-            break;
-
-        default:
-            fprintf(stderr, "ERROR: Invalied Event Selector nuber.\n");
-            exit(1);
-    }
+    assert(sel_num < 4 && sel_num >= 0);
+    etm_set_event_sel_n(etm, true_num, pair, sel_num);
 }
 
 /*
@@ -397,8 +359,8 @@ void etm_set_event_trc(ETM_interface *etm, int mask, int atb)
 
 void etm_register_pmu_event(ETM_interface *etm, int event_bus)
 {
-    int rs_num = _request_rs();
-    int ext_num = _request_ext_sel();
+    int rs_num = _request_rs(etm);
+    int ext_num = _request_ext_sel(etm);
 
     etm_set_ext_input(etm, event_bus, ext_num);
     etm_set_rs(etm, rs_num, External_input, ext_num, 0, 0, 0);
@@ -417,14 +379,14 @@ void etm_register_pmu_event(ETM_interface *etm, int event_bus)
 void etm_example_single_counter(ETM_interface* etm, int event_bus, uint16_t counter_val)
 {
     printf("Single counter counting Event Bus %d with reload %u \n", event_bus, counter_val);
-    int rs_num = _request_rs();
+    int rs_num = _request_rs(etm);
     // when event indicated by resource [rs_num] occurs, counter 0 is decremented
     etm->counter_ctrl[0] = rs_num;
     // set the initial value of the cnt
     etm->counter_val[0] = counter_val;
 
     // request a external input selector
-    int ext_num = _request_ext_sel();
+    int ext_num = _request_ext_sel(etm);
     // let the resource rs_num hooked to the external input selector when PMU fires event_bus
     etm_set_rs(etm, rs_num, External_input, ext_num, -1, 0, 0);
     etm_set_ext_input(etm, event_bus, ext_num);
@@ -447,7 +409,7 @@ void etm_example_single_counter_fire_event(ETM_interface* etm, int event_bus, ui
     etm_example_single_counter(etm, event_bus, counter_val);
 
     // fire the event
-    int rs_num_fire = _request_rs();
+    int rs_num_fire = _request_rs(etm);
     etm_set_rs(etm, rs_num_fire, Counter_Seq, 0, -1, 0, 0);
 
     // register the fire resource to event packet
@@ -485,15 +447,15 @@ void etm_example_large_counter(ETM_interface* etm, int event_bus, uint32_t count
 {
     printf("Large counter counting Evnet Bus %d\n", event_bus);
     printf("Reload value: %d\n", counter_val);
-    printf("WARNING: read counter value when ETM is active might return unstable value!\n");
+    printf("IMPORTANT: read counter value when ETM is active might return unstable value!\n");
 
-    int rs_num = _request_rs();
+    int rs_num = _request_rs(etm);
 
     // when event indicated by resource [rs_num] occurs, counter 0 is decremented
     etm->counter_ctrl[0] = rs_num;
 
     // request a external input selector
-    int ext_num = _request_ext_sel();
+    int ext_num = _request_ext_sel(etm);
 
     // let the resource rs_num hooked to the external input selector when PMU fires event_bus
     etm_set_rs(etm, rs_num, External_input, ext_num, -1, 0, 0);
@@ -505,15 +467,15 @@ void etm_example_large_counter(ETM_interface* etm, int event_bus, uint32_t count
 void etm_example_large_counter_fire_event(ETM_interface* etm, int event_bus, uint32_t counter_val)
 {
     printf("Running example: Large counter counting Event Bus and fire Event\n");
-
+    printf("IMPORTANT: read counter value when ETM is active might return unstable value!\n");
     // We need three resource regs to make this work
     // one for monitoring the PMU event bus
     // two for forming the logic to use the large counter
-    int rs_pmu_bus = _request_rs();
-    int rs_pair_base = _request_rs_pair();
+    int rs_pmu_bus = _request_rs(etm);
+    int rs_pair_base = _request_rs_pair(etm);
 
     // to monitor PMU event bus, we also need a External Input Selector
-    int ext_num = _request_ext_sel();
+    int ext_num = _request_ext_sel(etm);
 
     // let ext_num listen to the desired event bus
     etm_set_ext_input(etm, event_bus, ext_num);
@@ -533,17 +495,24 @@ void etm_example_large_counter_fire_event(ETM_interface* etm, int event_bus, uin
     etm_set_rs(etm, rs_pair_base + 1, Counter_Seq, 1, -1, 0, 0);
 
     // finally we tell ETM to insert Event Packet when the resource pair fires
+    // This also asserts ETM's own output pin for event occurance
+
+    // the position is arbitrary, choose from [0...3]
     int position_in_event_packet = 3;
+
+    // let ETM assert Event when the resource fires, this produces external output to CTI
     etm_set_event_sel(etm, position_in_event_packet, rs_pair_base, 1);
+
+    // let ETM further insert Event Packet when the resource fires
     etm_set_event_trc(etm, 0x1 << position_in_event_packet, 0);
 
 }
 
 void etm_register_single_addr_match_event(ETM_interface *etm, uint64_t addr) 
 {
-    int addr_cmp_num = _request_addr_cmp();
-    int rs_num = _request_rs();
-    int ext_num = _request_ext_sel();
+    int addr_cmp_num = _request_addr_cmp(etm);
+    int rs_num = _request_rs(etm);
+    int ext_num = _request_ext_sel(etm);
 
     etm_set_addr_cmp(etm, addr_cmp_num, addr, 1);
     etm_set_rs(etm, rs_num, Single_addr, addr_cmp_num, 0,0,0);
