@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     printf("Vanilla ZCU102 self-host trace demo.\n");
     printf("Build: on %s at %s\n\n", __DATE__, __TIME__);
 
-    pid_t target_pid; 
+    pid_t target_pid;
 
     // Disabling all cpuidle. Access the ETM of an idled core will cause a hang.
     linux_disable_cpuidle();

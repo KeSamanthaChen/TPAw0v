@@ -20,7 +20,7 @@
 */
 int avail_addr_cmp_high = 7 ;
 int avail_addr_cmp_low = 0 ;
-int avail_rs_high = 15 ;
+int avail_rs_high = 15 ; // 13.8.37 a53 trm, 7.3.62 ETMv4
 int avail_rs_low = 2 ;
 int avail_ext_sel_low = 0;
 int avail_ext_sel_high = 3;
@@ -189,7 +189,7 @@ void etm_set_ext_input(ETM_interface *etm, int event_bus_num, int selector)
         printf("WARNING: invalid position setting External Input, choose from 0..3\n");
         return ;
     }
-    etm->ext_input_sel |= event_bus_num << (8*selector);
+    etm->ext_input_sel |= event_bus_num << (8*selector); // for example event_bus 22, selector (0..3)
 }
 
 
