@@ -64,7 +64,7 @@ int perf_open(void)
 	group_fd = -1;	/* first in group */
 	flags = PERF_FLAG_FD_CLOEXEC;
 
-	for (ctr = 0; ctr < NUM_PERF; ctr++) {
+	for (ctr = 0; ctr < NUM_PERF; ctr++) { // for every events
 		/* 1st PMU counter is group leader */
 		if (ctr == 0) {
 			group_fd = -1;	/* first in group */
