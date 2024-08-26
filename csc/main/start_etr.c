@@ -26,9 +26,6 @@ extern ETM_interface *etms[4];
 
 int main(int argc, char *argv[])
 {
-    printf("Perf open.\n");
-    perf_open();
-
     printf("Vanilla ZCU102 self-host trace demo.\n");
     printf("Build: on %s at %s\n\n", __DATE__, __TIME__);
 
@@ -55,8 +52,6 @@ int main(int argc, char *argv[])
     // initialize ETM
     config_etm_n(etms[0], 0, 1);
 
-    config_pmu_enable_export();
-
     // fork a child to execute the target application
     for (int i = 0; i < 1; i++)
     {
@@ -70,11 +65,6 @@ int main(int argc, char *argv[])
             // with the program counter in the range of 0x400000 to 0x500000
             etm_set_contextid_cmp(etms[0], child_pid);
             etm_register_range(etms[0], 0x400000, 0x500000, 1);
-
-            etm_example_large_counter_fire_event(etms[0], L2D_CACHE_REFILL_T, 10000);
-
-            perf_read(perf_prev_values);
-            printf("Initial perf refill value %llu\n", perf_prev_values[0]);
 
             // Enable ETM, start trace session
             etm_enable(etms[0]);
@@ -97,16 +87,6 @@ int main(int argc, char *argv[])
 
     // Disable ETM, our trace session is done
     etm_disable(etms[0]);
-
-    perf_read(perf_curr_values);
-    printf("Initial perf refill value %llu\n", perf_prev_values[0]);
-    printf("Final perf refill value %llu\n", perf_curr_values[0]);
-
-
-    perf_delta(perf_curr_values, perf_prev_values, perf_delta_values);
-
-    printf("L2D refill: %llu\n", perf_delta_values[0]);
-    printf("L2D write-back: %llu\n", perf_delta_values[1]);
 
     munmap(etms[0], sizeof(ETM_interface));
 

@@ -13,16 +13,18 @@
 #define NUM_PERF 1
 #endif
 
-static const unsigned long long perf_config[NUM_PERF];
-extern int perf_fds[NUM_PERF];
-extern unsigned long long perf_prev_values[NUM_PERF];
-extern unsigned long long perf_curr_values[NUM_PERF];
-extern unsigned long long perf_delta_values[NUM_PERF];
+#define MAX_EVENT_NAME 50
+
+typedef struct {
+    char name[MAX_EVENT_NAME];
+    int number;
+} PmuEvent;
+
 extern int perf_ok;
 
 int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd, unsigned long flags);
-int perf_open(void);
-int perf_read(unsigned long long *values);
-unsigned long long *perf_delta(const unsigned long long *curr_values, const unsigned long long *prev_values, unsigned long long *delta_values);
+int perf_open(int event_num, PmuEvent *pmu_events, int *perf_fds);
+int perf_read(unsigned long long *values, int event_num, int *perf_fds);
+unsigned long long *perf_delta(const unsigned long long *curr_values, const unsigned long long *prev_values, unsigned long long *delta_values, int event_num);
 
 #endif /* PMU_COUNTER_H */

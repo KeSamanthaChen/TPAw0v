@@ -4,34 +4,9 @@
 #include <unistd.h>
 
 
-#if defined __aarch64__
-static const unsigned long long perf_config[NUM_PERF] = {
-	/* for Cortex-A53, A57, A72 */
-	0x0017,	/* L2D refill */
-	0x0018,	/* L2D write-back */
-};
-#elif defined __riscv
-static const unsigned long long perf_config[NUM_PERF] = {
-};
-#elif defined __x86_64__
-static const unsigned long long perf_config[NUM_PERF] = {
-	/* for Intel */
-	0x412e,	/* LONGEST_LAT_CACHE.MISS */
-};
-#endif
-
-/* fds of perf */
-int perf_fds[NUM_PERF];
-
-/* previous and current values and deltas */
-unsigned long long perf_prev_values[NUM_PERF];
-unsigned long long perf_curr_values[NUM_PERF];
-unsigned long long perf_delta_values[NUM_PERF];
-
 int perf_ok = 0;
 
 #define __NR_perf_event_open 241 // for __aarch64__
-
 
 /* perf_event_open() system call, not exported in libc */
 int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd, unsigned long flags)
@@ -39,8 +14,7 @@ int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_
 	return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
-
-int perf_open(void)
+int perf_open(int event_num, PmuEvent *pmu_events, int *perf_fds)
 {
 	struct perf_event_attr attr = { 0 };
 	unsigned long flags;
@@ -64,14 +38,15 @@ int perf_open(void)
 	group_fd = -1;	/* first in group */
 	flags = PERF_FLAG_FD_CLOEXEC;
 
-	for (ctr = 0; ctr < NUM_PERF; ctr++) { // for every events
+	for (ctr = 0; ctr < event_num; ctr++) { // for every events
 		/* 1st PMU counter is group leader */
 		if (ctr == 0) {
 			group_fd = -1;	/* first in group */
 		} else {
 			group_fd = perf_fds[0];
 		}
-		attr.config = perf_config[ctr];
+		// attr.config = perf_config[ctr];
+		attr.config = pmu_events[ctr].number; // number
 
 		fd = perf_event_open(&attr, pid, cpu, group_fd, flags);
 		if (fd == -1) {
@@ -96,16 +71,16 @@ int perf_open(void)
 }
 
 
-int perf_read(unsigned long long *values)
+int perf_read(unsigned long long *values, int event_num, int *perf_fds)
 {
-	unsigned long long buf[NUM_PERF + 2];
+	unsigned long long buf[event_num + 2];
 	int group_fd;
 	ssize_t exp;
 	ssize_t r;
 	int err;
 
 	if (!perf_ok) {
-		for (int i = 0; i < NUM_PERF; i++) {
+		for (int i = 0; i < event_num; i++) {
 			values[i] = 0;
 		}
 		return 0;
@@ -115,7 +90,7 @@ int perf_read(unsigned long long *values)
 	 * the first value is the number of counters.
 	 * The buffer has space for two more values to detect format issues.
 	 */
-	exp = (NUM_PERF + 1) * sizeof(buf[0]);
+	exp = (event_num + 1) * sizeof(buf[0]);
 
 	group_fd = perf_fds[0];
 
@@ -129,12 +104,12 @@ int perf_read(unsigned long long *values)
 		fprintf(stderr, "perf_trace: read %zd, expected %zd\n", r, exp);
 		return EINVAL;
 	}
-	if (buf[0] != NUM_PERF) {
+	if (buf[0] != event_num) {
 		fprintf(stderr, "perf_trace: unexpected value %llu\n", buf[0]);
 		return EINVAL;
 	}
 
-	for (int i = 0; i < NUM_PERF; i++) {
+	for (int i = 0; i < event_num; i++) {
 		values[i] = buf[i+1];
 	}
 
@@ -142,9 +117,9 @@ int perf_read(unsigned long long *values)
 }
 
 
-unsigned long long *perf_delta(const unsigned long long *curr_values, const unsigned long long *prev_values, unsigned long long *delta_values)
+unsigned long long *perf_delta(const unsigned long long *curr_values, const unsigned long long *prev_values, unsigned long long *delta_values, int event_num)
 {
-	for (int i = 0; i < NUM_PERF; i++) {
+	for (int i = 0; i < event_num; i++) {
 		delta_values[i] = curr_values[i] - prev_values[i];
 	}
 
